@@ -1,8 +1,10 @@
 package tud.bp;
 
+import tud.bp.ApiAccess;
+
 public class Main {
 
     public static void main(String[] args) {
-	// write your code here
+        ApiAccess.runCurl();
     }
 }
