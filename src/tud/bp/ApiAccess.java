@@ -17,23 +17,11 @@ public class ApiAccess {
 
             if (exitVal == 0) {
                 System.out.println(
-                        inputStreamToString(curlProc.getInputStream())
+                        GeneralConversion.inputStreamToString(curlProc.getInputStream())
                 );
             }
         } catch (IOException | InterruptedException e) {
             e.printStackTrace();
         }
-    }
-
-    private static String inputStreamToString(InputStream in) throws IOException {
-        InputStreamReader isr = new InputStreamReader(in);
-        BufferedReader reader = new BufferedReader(isr);
-        StringBuffer sb = new StringBuffer();
-        String str;
-
-        while ((str = reader.readLine()) != null)
-            sb.append(str);
-
-        return sb.toString();
     }
 }
