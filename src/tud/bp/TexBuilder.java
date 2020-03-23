@@ -52,6 +52,7 @@ public class TexBuilder {
     private int estimate;
     private String timeSpent;
     private String velocity;
+    private String iteration;
     private String[] notes;
 
     public TexBuilder(JSONObject issue) {
@@ -72,6 +73,8 @@ public class TexBuilder {
         // <-- G E N E R A L   I N F O R M A T I O N -->
         writer.write("\\subsection{Issue \\#" + this.iid + "}");
         writer.newLine();
+        writer.write("\\label{sec:" + this.iid + "}");
+        writer.newLine();
         writer.write("\\subsubsection*{Titel: " + this.title + "}");
         writer.newLine();
         writer.newLine();
@@ -91,7 +94,8 @@ public class TexBuilder {
             if (!s.equals("")) {
                 if (s.contains("- *")) {
                     // itemize inside itemize detected
-                    String[] splitted = s.split("\\n-\\s\\* \\[[x|\\s]\\]\\s*");
+                    // \n- * [x] Name must not be empty
+                    String[] splitted = s.split("\\n-\\s\\*\\s\\[[x|\\s]\\]\\s*");
                     StringBuilder sb = new StringBuilder();
 
                     sb.append(splitted[0] + "\n");
@@ -110,7 +114,8 @@ public class TexBuilder {
                 }
                 s = s.replace("_", "\\_")
                         .replace("<del>", "\\st{")
-                        .replace("</del>", "}");
+                        .replace("</del>", "}")
+                        .replaceAll("\\*\\*(.*)\\*\\*", "\\\\textbf{$1}");
                 writer.write("    \\item " + s);
                 writer.newLine();
             }
@@ -140,6 +145,10 @@ public class TexBuilder {
         writer.newLine();
         writer.write("    \\hline");
         writer.newLine();
+        writer.write("    Iteration & " + this.iteration + "\\\\");
+        writer.newLine();
+        writer.write("    \\hline");
+        writer.newLine();
         writer.write("\\end{tabular}");
 
         writer.newLine();
@@ -164,7 +173,7 @@ public class TexBuilder {
                     writer.write(" \\begin{itemize}");
                     writer.newLine();
                 }
-                s = s.replace("#", "\\#");
+                s = s.replaceAll("#([0-9]*)", "\\\\hyperref[sec:$1]{\\\\textcolor{linkred}{\\\\#$1}}");
                 s = s.replace("_", "\\_");
                 writer.write("    \\item " + s);
                 writer.newLine();
@@ -221,7 +230,7 @@ public class TexBuilder {
         // 4 = time,
         // 5 = notes
 
-        this.description = parts[1].replace("#", "\\#")
+        this.description = parts[1].replaceAll("#([0-9]*)", "\\\\hyperref[sec:$1]{\\\\textcolor{linkred}{\\\\#$1}}")
                 .replace("<del>", "\\st{")
                 .replace("</del>", "}")
                 .replaceAll("\\n\\s*\\n\\s*", "\\\\\\\\\n\n\\\\noindent\n")
@@ -234,25 +243,26 @@ public class TexBuilder {
 
         if (this.description.contains("* ")) {
             // replace all * enumerators with \item
-            this.description = this.description.replaceAll("\\*\\s([A-Za-z0-9\\s_\\-]*)\\n*(\\\\)?[^*]",
+            this.description = this.description.replaceAll("\\*\\s([A-Za-z0-9(),\\s_\\-]*)\\n*(\\\\)?[^*]",
                     "    \\\\item $1$2\n");
             // place \begin{itemize} at the top
-            this.description = this.description.replaceAll("\\\\noindent\\n*(\\s*\\\\item\\s[A-Za-z0-9_\\-\\s]*)[^\\n]",
+            this.description = this.description.replaceAll("\\\\noindent\\n*(\\s*\\\\item\\s[A-Za-z0-9(),_\\-\\s]*)[^\\n]",
                     "\\\\noindent\n\\\\begin{itemize}\n$1");
             // correct error where the backslash of the second item is removed
             this.description = this.description.replaceFirst("[^\\\\]item\\s",
                     " \\\\item ");
             // place \end{itemize} at the end
-            this.description = this.description.replaceAll("\\s*\\\\item\\s([A-Za-z0-9_\\-\\s]*)\\\\\\n*[^\\\\\\w]",
+            this.description = this.description.replaceAll("\\s*\\\\item\\s([A-Za-z0-9_()\\-\\s]*)\\\\\\n*[^\\\\\\w]",
                     "\n    \\\\item $1\n\\\\end{itemize}\n\n");
         }
         this.description = this.description.replace("_", "\\_");
 
-        this.acceptanceCriteria = parts[3].split("(\\n*\\* \\[[x|\\s]\\]\\s*)|(\\n*\\*\\s*)");
+        this.acceptanceCriteria = parts[3].split("(\\n\\* \\[[x|\\s]\\]\\s*)|(\\n\\*\\s*)");
 
         String[] timeData = parts[4].split("\\s*\\|\\s*");
         // 8 = Estimate,
-        // 11 = Spent
+        // 11 = Spent,
+        // 17 = Sprint
 
         if (timeData[8].contains("x")) timeData[8] = "0";
         if (timeData[8].contains("SP")) timeData[8] = timeData[8].replace("SP", "");
@@ -261,6 +271,8 @@ public class TexBuilder {
         this.formatTimeSpent(timeData[11]);
 
         this.calculateVelocity();
+
+        this.iteration = formatIteration(timeData[17]);
 
         System.out.println(this.iid);
         this.notes = parts[5].split("\\s*\\*\\s*");
@@ -330,5 +342,20 @@ public class TexBuilder {
         }
 
         return new int[] {hours, minutes};
+    }
+
+    private String formatIteration(String it) {
+        if (it.contains(",")) {
+            String[] split = it.split(",");
+            it = split[split.length-1];
+        }
+
+        it = it.strip();
+
+        if (!it.contains("x")) {
+            return Integer.toString(Integer.parseInt(it));
+        }
+
+        return "-";
     }
 }
