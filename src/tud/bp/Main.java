@@ -11,7 +11,7 @@ public class Main {
     public static final String pathToBPRepo = "/home/jan/Dokumente/git/bp-doc/";
 
     // 505 is a bug report created by our client and does therefore not follow our layout. It must be written manually.
-    public static final int[] dontInclude = new int[] {/*505*/};
+    public static final int[] dontInclude = new int[] {505, 619};
 
     public static void main(String[] args) {
         // Initialize
@@ -21,6 +21,7 @@ public class Main {
 
         TexBuilder tb;
 
+        System.out.println("<-- Admin -->");
         // Iterate through the admin issues and build every single issue file
         for (int i = 0; i < jsonArrays.getAdminLength(); i++) {
             tb = new TexBuilder( jsonArrays.getAdmin().getJSONObject(i) );
@@ -34,6 +35,8 @@ public class Main {
             issueIDs[i] = tb.getIID();
         }
 
+        System.out.println();
+        System.out.println("<-- Support -->");
         // Iterate through the support issues and build every single issue file
         for (int i = 0; i < jsonArrays.getSupportLength(); i++) {
             tb = new TexBuilder( jsonArrays.getSupport().getJSONObject(i) );

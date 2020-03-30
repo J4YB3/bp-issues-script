@@ -52,12 +52,12 @@ public class TexBuilder {
     private String assigneeName;
     private String milestoneName;
     private String description;
-    private String[] acceptanceCriteria;
+    private String[] acceptanceCriteria = new String[] {};
     private int estimate;
     private String timeSpent;
     private String velocity;
     private String iteration;
-    private String[] notes;
+    private String[] notes = new String[] {};
 
     /**
      * Call the functions automatically on creation
@@ -65,8 +65,14 @@ public class TexBuilder {
      */
     public TexBuilder(JSONObject issue) {
         this.issue = issue;
-
         this.extractIID();
+
+        // If the iid matches any of the dontIncludes then don't create the file, due to unexpected behaviour and wrong
+        // formats
+        for (Integer n : Main.dontInclude) {
+            if (this.iid == n) return;
+        }
+
         this.extractTitle();
         this.extractAssigneeName();
         this.extractMilestoneName();
@@ -76,7 +82,7 @@ public class TexBuilder {
 
     /**
      * Builds the complete issue file using a BufferedWriter
-     * @throws IOException
+     * @throws IOException if the creation of the BufferedWriter or FileWriter fails
      */
     public void buildIssueFile() throws IOException {
         File out = new File(Main.pathToBPRepo + "qs/issues/" + this.iid + ".tex");
@@ -214,6 +220,7 @@ public class TexBuilder {
     }
 
     public int getIID() {
+        this.extractIID();
         return this.iid;
     }
 
@@ -247,6 +254,7 @@ public class TexBuilder {
      * formats every single one of them. (Tasks are not formatted because they are not needed for the final issue file)
      */
     private void formatDescription() {
+        System.out.println("Current Issue: #" + this.iid);
         String desc = this.issue.getString("description");
         String[] parts = desc.split("####\\s.*");
         // 0 = empty,
@@ -284,14 +292,17 @@ public class TexBuilder {
             // replace all * enumerators with \item
             this.description = this.description.replaceAll("\\*\\s([A-Za-z0-9(),\\s_\\-]*)\\n*(\\\\)?[^*]",
                     "    \\\\item $1$2\n");
+
             // place \begin{itemize} at the top
             this.description = this.description.replaceAll("\\\\noindent\\n*(\\s*\\\\item\\s[A-Za-z0-9(),_\\-\\s]*)[^\\n]",
                     "\\\\noindent\n\\\\begin{itemize}\n$1");
+
             // correct error where the backslash of the second item is removed (this is only a workaround)
             this.description = this.description.replaceFirst("[^\\\\]item\\s",
                     " \\\\item ");
+
             // place \end{itemize} at the end
-            this.description = this.description.replaceAll("\\s*\\\\item\\s([A-Za-z0-9_()\\-\\s]*)\\\\\\n*[^\\\\\\w]",
+            this.description = this.description.replaceAll("\\s*\\\\item\\s([A-Za-z0-9_(),\\-\\s]*)\\\\\\n*[^\\\\\\w]",
                     "\n    \\\\item $1\n\\\\end{itemize}\n\n");
         }
 
@@ -299,8 +310,10 @@ public class TexBuilder {
         this.description = this.description.replace("_", "\\_");
 
         // The acceptance Criteria are processed in the buildIssueFile() method and therefore only split by the
-        // checkbox signs ( * [ ] or * [x] )
-        this.acceptanceCriteria = parts[3].split("(\\n\\* \\[[x|\\s]\\]\\s*)|(\\n\\*\\s*)");
+        // checkbox signs ( * [ ] or * [x] ).
+        // Here just the links to the issues in LaTeX document are created
+        this.acceptanceCriteria = parts[3].replaceAll("#([0-9]*)", "\\\\hyperref[sec:$1]{\\\\textcolor{linkred}{\\\\#$1}}")
+                .split("(\\n\\* \\[[x|\\s]\\]\\s*)|(\\n\\*\\s*)");
 
         // Save the time data by splitting the time table by "|"
         String[] timeData = parts[4].split("\\s*\\|\\s*");
