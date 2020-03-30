@@ -10,7 +10,7 @@ import java.math.RoundingMode;
 import java.text.DecimalFormat;
 
 /**
- * <-- S K E L E T O N -->
+ * <-- L a T e X   S K E L E T O N -->
  *
  * \subsection{Issue \#<iid>}
  * \subsubsection*{Titel: <title>}
@@ -40,6 +40,10 @@ import java.text.DecimalFormat;
  * \end{itemize}
  */
 
+/**
+ * Class to build a .tex file for every single issue, as long as the issues description follows the predetermined format
+ * of our "Bachelor Praktikum" group
+ */
 public class TexBuilder {
     private JSONObject issue;
 
@@ -55,6 +59,10 @@ public class TexBuilder {
     private String iteration;
     private String[] notes;
 
+    /**
+     * Call the functions automatically on creation
+     * @param issue The issue as a JSONObject
+     */
     public TexBuilder(JSONObject issue) {
         this.issue = issue;
 
@@ -66,6 +74,10 @@ public class TexBuilder {
         this.formatDescription();
     }
 
+    /**
+     * Builds the complete issue file using a BufferedWriter
+     * @throws IOException
+     */
     public void buildIssueFile() throws IOException {
         File out = new File(Main.pathToBPRepo + "qs/issues/" + this.iid + ".tex");
         BufferedWriter writer = new BufferedWriter(new FileWriter(out));
@@ -157,10 +169,12 @@ public class TexBuilder {
         // <-- N O T E S -->
         writer.write("\\paragraph{Anmerkungen:}");
 
+        // Saves whether a note has already been written or not. If the issue does not contain any notes then no itemize
+        // is needed and instead later "Keine Anmerkungen" is printed instead
         boolean begun = false;
 
         for (String s : this.notes) {
-            // skip /estimate, /spend or empty strings
+            // skip /estimate, /spend or empty strings in every form ( with \ or / )
             if (!(
                     s.contains("/estimate")
                     || s.contains("\\estimate")
@@ -173,13 +187,20 @@ public class TexBuilder {
                     writer.write(" \\begin{itemize}");
                     writer.newLine();
                 }
+                // detect any mentions of any issue and refer to them inside the LaTeX document
                 s = s.replaceAll("#([0-9]*)", "\\\\hyperref[sec:$1]{\\\\textcolor{linkred}{\\\\#$1}}");
+
+                // Replace _ with \_ due to the LaTeX compiler recognizing _ as the index character in math mode
                 s = s.replace("_", "\\_");
+
+                // finally write the note inside itemize
                 writer.write("    \\item " + s);
                 writer.newLine();
             }
         }
 
+        // If the issue contained notes (beside spend and estimate) close the itemize.
+        // Otherwise print "Keine Anmerkungen"
         if (begun) {
             writer.write("\\end{itemize}");
         } else {
@@ -211,6 +232,7 @@ public class TexBuilder {
                 .getJSONObject(0)
                 .getString("name");
 
+        // Correct Julians name because he was created in GitLab as the User Julian H
         if (name.contains("Julian")) name = "Julian Hochgürtel";
 
         this.assigneeName = name;
@@ -220,6 +242,10 @@ public class TexBuilder {
         this.milestoneName = issue.getJSONObject("milestone").getString("title");
     }
 
+    /**
+     * Extracts all parts of the description (description itself, tasks, acceptance criteria, time and notes) and
+     * formats every single one of them. (Tasks are not formatted because they are not needed for the final issue file)
+     */
     private void formatDescription() {
         String desc = this.issue.getString("description");
         String[] parts = desc.split("####\\s.*");
@@ -230,17 +256,30 @@ public class TexBuilder {
         // 4 = time,
         // 5 = notes
 
+        // First correct some things of the description
+        // Refer to mentioned issues inside the LaTeX document
         this.description = parts[1].replaceAll("#([0-9]*)", "\\\\hyperref[sec:$1]{\\\\textcolor{linkred}{\\\\#$1}}")
+
+                // Replace the html deleted tag with the \st{...} command of the LaTeX soul package
                 .replace("<del>", "\\st{")
                 .replace("</del>", "}")
+
+                // Detect double new line and replace it with latex double new line and the \noindent tag
                 .replaceAll("\\n\\s*\\n\\s*", "\\\\\\\\\n\n\\\\noindent\n")
+
+                // Make sure no whitespaces follow the end of the description
                 .stripTrailing()
+
+                // Delete the first newLine in case the description starts with it
                 .replaceFirst("\\n", "");
+
+        // Remove the trailing newLines
         int index = this.description.lastIndexOf("\\\\\n\n\\noindent");
         if (index >= 0) {
             this.description = this.description.substring(0, index) + "\n\n";
         }
 
+        // If the enumerator symbol is detected then format the enumeration as itemize
         if (this.description.contains("* ")) {
             // replace all * enumerators with \item
             this.description = this.description.replaceAll("\\*\\s([A-Za-z0-9(),\\s_\\-]*)\\n*(\\\\)?[^*]",
@@ -248,22 +287,28 @@ public class TexBuilder {
             // place \begin{itemize} at the top
             this.description = this.description.replaceAll("\\\\noindent\\n*(\\s*\\\\item\\s[A-Za-z0-9(),_\\-\\s]*)[^\\n]",
                     "\\\\noindent\n\\\\begin{itemize}\n$1");
-            // correct error where the backslash of the second item is removed
+            // correct error where the backslash of the second item is removed (this is only a workaround)
             this.description = this.description.replaceFirst("[^\\\\]item\\s",
                     " \\\\item ");
             // place \end{itemize} at the end
             this.description = this.description.replaceAll("\\s*\\\\item\\s([A-Za-z0-9_()\\-\\s]*)\\\\\\n*[^\\\\\\w]",
                     "\n    \\\\item $1\n\\\\end{itemize}\n\n");
         }
+
+        // Finally replace the LaTeX math index sign with the escaped underscore ( _ to \_ )
         this.description = this.description.replace("_", "\\_");
 
+        // The acceptance Criteria are processed in the buildIssueFile() method and therefore only split by the
+        // checkbox signs ( * [ ] or * [x] )
         this.acceptanceCriteria = parts[3].split("(\\n\\* \\[[x|\\s]\\]\\s*)|(\\n\\*\\s*)");
 
+        // Save the time data by splitting the time table by "|"
         String[] timeData = parts[4].split("\\s*\\|\\s*");
         // 8 = Estimate,
         // 11 = Spent,
         // 17 = Sprint
 
+        // Pre format the estimate to save it to the estimate field
         if (timeData[8].contains("x")) timeData[8] = "0";
         if (timeData[8].contains("SP")) timeData[8] = timeData[8].replace("SP", "");
         this.estimate = Integer.parseInt(timeData[8]);
@@ -274,15 +319,20 @@ public class TexBuilder {
 
         this.iteration = formatIteration(timeData[17]);
 
-        System.out.println(this.iid);
+        // The notes are also processed in the buildIssueFile() so just split them by the enumeration sign *
         this.notes = parts[5].split("\\s*\\*\\s*");
     }
 
+    /**
+     * Calculates the velocity of the issue using the class fields. It extracts the time from the issues description
+     * and the estimated story points (which in this project are equal to 1 SP = 1 hour).
+     */
     private void calculateVelocity() {
         // Convert time spent string to a float that represents the hours spent
         int[] hoursMinutes = this.splitTimeStringToIntArray(this.timeSpent);
         double time = (double)hoursMinutes[0] + (double)hoursMinutes[1] / 60;
 
+        // If no time was spent return with a velocity of zero to avoid division by zero
         if (time == 0) {
             this.velocity = "0";
             return;
@@ -292,14 +342,19 @@ public class TexBuilder {
 
         // round to 3 decimals
         DecimalFormat df = new DecimalFormat("#.###");
-        df.setRoundingMode(RoundingMode.HALF_UP);
+        df.setRoundingMode(RoundingMode.HALF_UP); // Half_up is the standard rounding mode where .5 is rounded up to 1
         this.velocity = df.format(vel);
     }
 
+    /**
+     * Formats the spent time with every possible combination (Only hours, hours and minutes, only minutes)
+     * @param time The time string representing the spent time from the time table of the issue
+     */
     private void formatTimeSpent(String time) {
         String hoursString = "";
         String minutesString = "";
 
+        // Get the pre formatted time string as integer array
         int[] hoursMinutes = this.splitTimeStringToIntArray(time);
 
         if (hoursMinutes[0] != 0) {
@@ -312,38 +367,59 @@ public class TexBuilder {
         this.timeSpent = hoursString + minutesString;
     }
 
+    /**
+     * Splits the time string to an integer array, containing the hours at index 0 and the minutes at index 1,
+     * so it can be worked with easily
+     * @param time The time string from the issues time table
+     * @return An integer array with index 0 = hours and index 1 = minutes
+     */
     private int[] splitTimeStringToIntArray(String time) {
+        // If no time was spent return 0, 0
         if (time.contains("x")) return new int[] {0, 0};
+
+        // First remove all whitespaces
         time = time.replaceAll("\\s", "");
 
         int hours = 0;
         int minutes = 0;
 
+        // Cover all possible formats (only hours, hours and minutes, only minutes)
         if (time.contains("h")) {
             int index = time.indexOf("h");
             String hourSubstring = time.substring(0, index);
 
+            // React to the format where only hours are given but containing decimal points (e.g. 1.5 h)
             if (hourSubstring.contains(".")) {
+                // split by the dot to get the hour part and the decimal part separated
                 String[] splitHour = hourSubstring.split("\\.");
                 hours = Integer.parseInt(splitHour[0]);
+
+                // process the decimal part. 10 ^ <the length of the decimal part> * 60 gives us the number to divide by
+                // If the decimal part contains hundredth (length 2) we need to divide by 600 to get the correct minutes
                 double min = Double.parseDouble(splitHour[1]) / Math.pow(10.0, (double)splitHour[1].length())  * 60;
                 DecimalFormat df = new DecimalFormat("#");
-                df.setRoundingMode(RoundingMode.HALF_UP);
+                df.setRoundingMode(RoundingMode.HALF_UP); // Again half_up is the normal rounding (.5 to 1)
                 minutes = Integer.parseInt(df.format(min));
             } else {
                 hours = Integer.parseInt(hourSubstring);
             }
 
+            // if also minutes are given
             if (time.contains("m")) {
                 minutes = Integer.parseInt(time.substring(index + 1, time.indexOf("m")));
             }
-        } else {
+        } else { // if only minutes are given
             minutes = Integer.parseInt(time.substring(0, time.indexOf("m")));
         }
 
         return new int[] {hours, minutes};
     }
 
+    /**
+     * Format the list or the single iteration in the issues time table
+     * @param it The string containing the list of iterations split by "," or the single iteration
+     * @return The correctly formatted iteration
+     */
     private String formatIteration(String it) {
         if (it.contains(",")) {
             String[] split = it.split(",");

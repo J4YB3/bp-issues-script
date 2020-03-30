@@ -21,6 +21,9 @@ public class JSONData {
 
     private final String pathToExportFiles = "nutzer_geschichten/exportFiles/";
 
+    /**
+     * Constructor. Reads the files automatically on creation
+     */
     public JSONData() {
         this.readFiles();
     }
@@ -35,11 +38,11 @@ public class JSONData {
             FileReader adminReader = new FileReader(admin);
             FileReader supportReader = new FileReader(support);
 
-            String fileContentAdmin = GeneralConversion.readerToString(adminReader);
-            String fileContentSupport = GeneralConversion.readerToString(supportReader);
+            String adminFileContent = GeneralConversion.readerToString(adminReader);
+            String supportFileContent = GeneralConversion.readerToString(supportReader);
 
-            this.adminArray = new JSONArray(fileContentAdmin);
-            this.supportArray = new JSONArray(fileContentSupport);
+            this.adminArray = new JSONArray(adminFileContent);
+            this.supportArray = new JSONArray(supportFileContent);
         } catch (IOException e) {
             e.printStackTrace();
         }
