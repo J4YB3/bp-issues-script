@@ -15,7 +15,7 @@ Like so.
 
 Enumerations are possible like:
 * This one
-* And this one that shows, that kommas can be read and even <del>strikeout</del> text can be converted. However it must be used with the html tags \<del> and \</del> inside the issue
+* And this one that shows, that commas can be read and even <del>strikeout</del> text can be converted. However it must be used with the html tags \<del> and \</del> inside the issue
 
 The description can be as long as you like. Linking to other Issues by ID reference like #458 is also possible and will be converted to a \hyperref inside LaTeX.
 
